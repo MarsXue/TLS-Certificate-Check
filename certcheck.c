@@ -74,8 +74,6 @@ int main(int argc, char **argv) {
     ASN1_TIME *now_asn1time = ASN1_TIME_new();
     ASN1_TIME_set(now_asn1time, time(NULL));
 
-    // ASN1_TIME_print(bio, now_asn1time);
-
     BIO *bio = NULL;
     bio = BIO_new(BIO_s_file());
     bio  = BIO_new_fp(stdout, BIO_NOCLOSE);
