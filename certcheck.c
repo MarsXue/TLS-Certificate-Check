@@ -22,6 +22,8 @@
 #define READ "r"
 // write mode
 #define WRITE "w"
+// star character
+#define STAR '*'
 // slash character
 #define SLASH '/'
 // output file name
@@ -30,9 +32,11 @@
 #define FORMAT "%s,%s,%d\n"
 
 /******************************* HELP FUNCTION *******************************/
-void validation(char *file, char *url);
+int validation(char *file, char *url);
+int compare_time(ASN1_TIME *from, ASN1_TIME *to);
 char *get_path(int argc, char **argv);
 void *open_file(char *path, char *type);
+void remove_char(char *str, int index);
 /****************************************************************************/
 
 int main(int argc, char **argv) {
@@ -60,10 +64,10 @@ int main(int argc, char **argv) {
 
         printf("cert: %s \t| url: %s\n", file_path, url);
         // check the validation
-        validation(file_path, url);
-        printf("\n");
+        int result = validation(file_path, url);
         // write into the file
-        fprintf(fout, FORMAT, file, url, 0);
+        fprintf(fout, FORMAT, file, url, result);
+        printf("\n");
     }
 
     time_t t = time(NULL);
@@ -94,22 +98,22 @@ int main(int argc, char **argv) {
     return 0;
 }
 
-void validation(char *file, char *url) {
+int validation(char *file, char *url) {
     BIO *certificate_bio = NULL;
     X509 *cert = NULL;
     X509_NAME *cert_subject = NULL;
     // X509_CINF *cert_inf = NULL;
     // STACK_OF(X509_EXTENSION) * ext_list;
 
-    //initialise openSSL
+    // Initialise openSSL
     OpenSSL_add_all_algorithms();
     ERR_load_BIO_strings();
     ERR_load_crypto_strings();
 
-    //create BIO object to read certificate
+    // Create BIO object to read certificate
     certificate_bio = BIO_new(BIO_s_file());
 
-    //Read certificate into BIO
+    // Read certificate into BIO
     if (!(BIO_read_filename(certificate_bio, file))) {
         fprintf(stderr, "Error in reading cert BIO filename\n");
         exit(EXIT_FAILURE);
@@ -120,25 +124,56 @@ void validation(char *file, char *url) {
     }
 
     //****************************************************************
+    int result = 1;
     // Subject Common Name
     cert_subject = X509_get_subject_name(cert);
     char subject_cn[SIZE] = "Subject CN NOT FOUND";
     X509_NAME_get_text_by_NID(cert_subject, NID_commonName, subject_cn, SIZE);
-    printf("Subject CommonName:%s\n", subject_cn);
+    // printf("Subject CommonName:%s\n", subject_cn);
 
-    ASN1_TIME *cert_nb_time;
-    cert_nb_time = X509_get_notBefore(cert);
-    char *pstring_nb = (char*)cert_nb_time->data;
+    if (strchr(subject_cn, STAR)) {
+        int index = strlen(subject_cn) - strlen(strrchr(subject_cn, STAR));
+        remove_char(subject_cn, index);
+        // printf("--- AFTER: %s\n", subject_cn);
+        if (!strstr(url, subject_cn)) {
+            // url does not contain subject name
+            // printf("NOT CONTAIN\n");
+            return 0;
+        }
+    } else {
+        if (strcmp(subject_cn, url) != 0) {
+            // url and subject common name is different
+            // printf("--- Not same url!!!\n");
+            return 0;
+        }
+    }
 
-    ASN1_TIME *cert_na_time;
-    cert_na_time = X509_get_notAfter(cert);
-    char *pstring_na = (char*)cert_na_time->data;
-
-    printf("Not before: %s | Not after: %s\n", pstring_nb, pstring_na);
+    // get the not valid before time
+    ASN1_TIME *nb_time = X509_get_notBefore(cert);
+    // get the not valid after time
+    ASN1_TIME *na_time = X509_get_notAfter(cert);
+    // check not before and not after time are valid
+    if (!compare_time(nb_time, NULL) || !compare_time(NULL, na_time)) {
+        // Either time is not valid
+        // printf("--- Not valid!!!\n");
+        return 0;
+    }
 
     //****************************************************************
     X509_free(cert);
     BIO_free_all(certificate_bio);
+
+    return result;
+}
+
+// compare the two given time structure
+int compare_time(ASN1_TIME *from, ASN1_TIME *to) {
+    int day, sec;
+    if (ASN1_TIME_diff(&day, &sec, from, to)) {
+        // positive value - from <= to
+        if (day >= 0 || sec >= 0) return 1;
+    }
+    return 0;
 }
 
 // get the file path from input
@@ -157,13 +192,13 @@ char *get_path(int argc, char **argv) {
 void *open_file(char *path, char *type) {
     FILE *f;
     if (strcmp(type, WRITE) == 0) {
-        // write mode - required output csv file
+        // write mode - open output csv file
         char n_path[SIZE];
         strcpy(n_path, path);
         strcat(n_path, OUTPUT);
         f = fopen(n_path, type);
     } else {
-        // read mode
+        // read mode - open input csv file
         f = fopen(path, type);
     }
     if (f == NULL) {
@@ -171,4 +206,11 @@ void *open_file(char *path, char *type) {
         exit(1);
     }
     return f;
+}
+
+// remove the specific character by index
+void remove_char(char *str, int index) {
+    char *src;
+    for (src = str+index; *src != '\0'; *src = *(src+1), ++src);
+    *src = '\0';
 }
