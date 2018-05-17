@@ -148,7 +148,7 @@ int check_SAN(X509 *cert, char *url) {
     for (i=0; i<san_names_nb; i++) {
         const GENERAL_NAME *current_name = sk_GENERAL_NAME_value(san_names, i);
         if (current_name->type == GEN_DNS) {
-            char *dns_name = (char *) ASN1_STRING_data(current_name->d.dNSName);
+            char *dns_name = (char *)ASN1_STRING_data(current_name->d.dNSName);
             // check the wildcard domains
             if (strchr(dns_name, STAR)) {
                 int index = strlen(dns_name) - strlen(strrchr(dns_name, STAR));
