@@ -3,7 +3,7 @@
 
 ##Adapted from http://www.cs.colby.edu/maxwell/courses/tutorials/maketutor/
 CC = gcc
-CFLAGS = -lssl -lcrypto -I /usr/local/opt/openssl/include -L /usr/local/opt/openssl/lib
+CFLAGS = -lssl -lcrypto
 OBJ = certcheck.c
 EXE = certcheck
 
