@@ -1,5 +1,5 @@
 /* * * * * * * * *
- * A TLS Certificate checking
+ * A TLS Certificate validation using openssl library
  *
  * Command line arguments: path to test file
  *
@@ -127,9 +127,10 @@ int check_CN(X509 *cert, char *url) {
     X509_NAME_get_text_by_NID(cert_subject, NID_commonName, subject_cn, SIZE);
     // validates with domain name
     if (strchr(subject_cn, STAR)) {
+        // check the wildcard domains
         int index = strlen(subject_cn) - strlen(strrchr(subject_cn, STAR));
         remove_char(subject_cn, index);
-        // subject name does not contain wildcard url
+        // subject name does not contain wildcard domains
         if (!strstr(url, subject_cn)) return INVALID;
     } else {
         // subject common name and url are different
@@ -148,14 +149,14 @@ int check_SAN(X509 *cert, char *url) {
         const GENERAL_NAME *current_name = sk_GENERAL_NAME_value(san_names, i);
         if (current_name->type == GEN_DNS) {
             char *dns_name = (char *) ASN1_STRING_data(current_name->d.dNSName);
-            // printf("dns: %s\n", dns_name);
+            // check the wildcard domains
             if (strchr(dns_name, STAR)) {
                 int index = strlen(dns_name) - strlen(strrchr(dns_name, STAR));
                 remove_char(dns_name, index);
-                // wildcard url does not contain subject name
+                // subject alternative name does not contain wildcard domains
                 if (strstr(url, dns_name)) result = VALID;
             } else {
-                // url and subject common name is different
+                // subject alternative name and url are different
                 if (strcmp(url, dns_name) == 0) result = VALID;
             }
         }
@@ -184,9 +185,10 @@ int check_key_length(X509 *cert) {
 
 // check the basic constraint "CA:FALSE"
 int check_basic_constraint(X509 *cert) {
+    int ca = -1;
     BASIC_CONSTRAINTS *bs = X509_get_ext_d2i(cert, NID_basic_constraints, NULL, NULL);
     // CA value: 0 for false, 255 for true
-    int ca = bs->ca;
+    ca = bs->ca;
     BASIC_CONSTRAINTS_free(bs);
     return ca;
 }
@@ -232,7 +234,7 @@ char *get_path(int argc, char **argv) {
     if (argc == 2) {
         path = argv[1];
     } else {
-        fprintf(stderr, "usage: ./certcheck pathToTestFile\n");
+        fprintf(stderr, "usage: ./certcheck [path to test file]\n");
         exit(1);
     }
     return path;
