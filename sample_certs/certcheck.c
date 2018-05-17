@@ -76,11 +76,11 @@ int main(int argc, char **argv) {
         char file_path[SIZE];
         strcpy(file_path, directory);
         strcat(file_path, file);
-
-        printf("cert: %s \t| url: %s\n", file_path, url);
+        // printf("cert: %s \t| url: %s\n", file_path, url);
         // check the validation
         int result = validation(file_path, url);
         // write into the file
+        printf(FORMAT, file, url, result);
         fprintf(fout, FORMAT, file, url, result);
         printf("\n");
     }
@@ -160,7 +160,6 @@ int check_SAN(X509 *cert, char *url) {
     // Check each name within the extension
     for (int i=0; i<san_names_nb; i++) {
         const GENERAL_NAME *current_name = sk_GENERAL_NAME_value(san_names, i);
-
         if (current_name->type == GEN_DNS) {
             char *dns_name = (char *) ASN1_STRING_data(current_name->d.dNSName);
             // printf("dns: %s\n", dns_name);
