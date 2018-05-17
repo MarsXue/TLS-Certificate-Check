@@ -56,33 +56,22 @@ void remove_char(char *str, int index);
 /****************************************************************************/
 
 int main(int argc, char **argv) {
-    // get the file path
+    // get the input file path
     char *path = get_path(argc, argv);
     // open the input file
     FILE *fin = open_file(path, READ);
-    // get the directory path
-    char directory[SIZE];
-    int index = strlen(path) - strlen(strrchr(path, SLASH));
-    strncpy(directory, path, ++index);
     // open the output file
-    FILE *fout = open_file(directory, WRITE);
+    FILE *fout = open_file(OUTPUT, WRITE);
     // read and validate each line in file
     char buf[SIZE], file[SIZE], url[SIZE];
     while(fgets(buf, SIZE, fin) != NULL) {
         // get the certificate file and url
         buf[strlen(buf)-1] = '\0';
         sscanf(buf, "%[^,],%[^,]", file, url);
-        // directory path + file
-        char file_path[SIZE];
-        strcpy(file_path, directory);
-        strcat(file_path, file);
-        // printf("cert: %s \t| url: %s\n", file_path, url);
         // check the validation
-        int result = validation(file_path, url);
+        int result = validation(file, url);
         // write into the file
-        printf(FORMAT, file, url, result);
         fprintf(fout, FORMAT, file, url, result);
-        printf("\n");
     }
     // close the files
     fclose(fin);
@@ -112,9 +101,7 @@ int validation(char *file, char *url) {
     /************************************************************************/
     int result = VALID;
     // validates the domain in common name
-    if (!check_CN(cert, url) && !check_SAN(cert, url))  {
-        result = INVALID;
-    }
+    if (!check_CN(cert, url) && !check_SAN(cert, url)) result = INVALID;
     // validates the not before, not after time
     if (!check_validate_time(cert)) result = INVALID;
     // validates the minimum key length
@@ -123,7 +110,6 @@ int validation(char *file, char *url) {
     if (check_basic_constraint(cert)) result = INVALID;
     // validates the extension of extended key usage
     if (!check_TLS_WSA(cert)) result = INVALID;
-
     /************************************************************************/
     X509_free(cert);
     BIO_free_all(certificate_bio);
@@ -154,10 +140,8 @@ int check_CN(X509 *cert, char *url) {
 int check_SAN(X509 *cert, char *url) {
     int san_names_nb = -1, result = INVALID;
     STACK_OF(GENERAL_NAME) *san_names = X509_get_ext_d2i(cert, NID_subject_alt_name, NULL, NULL);
-
     san_names_nb = sk_GENERAL_NAME_num(san_names);
-
-    // Check each name within the extension
+    // check each name within the extension
     for (int i=0; i<san_names_nb; i++) {
         const GENERAL_NAME *current_name = sk_GENERAL_NAME_value(san_names, i);
         if (current_name->type == GEN_DNS) {
@@ -253,17 +237,7 @@ char *get_path(int argc, char **argv) {
 
 // open the file by type from file path
 void *open_file(char *path, char *type) {
-    FILE *f;
-    if (strcmp(type, WRITE) == 0) {
-        // write mode - open required output csv file
-        char n_path[SIZE];
-        strcpy(n_path, path);
-        strcat(n_path, OUTPUT);
-        f = fopen(n_path, type);
-    } else {
-        // read mode - open sample input csv file
-        f = fopen(path, type);
-    }
+    FILE *f = fopen(path, type);
     if (f == NULL) {
         fprintf(stderr, "Error opening file\n");
         exit(1);
