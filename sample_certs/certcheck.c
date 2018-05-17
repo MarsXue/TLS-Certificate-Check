@@ -182,7 +182,7 @@ int check_key_length(X509 *cert) {
     // RSA_free(rsa_key);
     if (public_key->pkey.ptr != NULL) {
         if (public_key->type == EVP_PKEY_RSA) RSA_free(public_key->pkey.rsa);
-    /* else memory leak */
+    }
     return key_length * BITS - KEY_LEN;
 }
 
