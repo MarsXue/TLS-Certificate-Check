@@ -1,4 +1,4 @@
-#!/usr/local/bin/bash
+#!/bin/bash
 INFILE="output.csv"
 INPUTFILE="sample_input.csv"
 
