@@ -183,6 +183,7 @@ int check_key_length(X509 *cert) {
     if (public_key->pkey.ptr != NULL) {
         if (public_key->type == EVP_PKEY_RSA) RSA_free(public_key->pkey.rsa);
     }
+    EVP_PKEY_free(public_key);
     return key_length * BITS - KEY_LEN;
 }
 
