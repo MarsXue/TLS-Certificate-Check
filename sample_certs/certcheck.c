@@ -45,7 +45,7 @@
 int validation(char *file, char *url);
 int check_CN(X509 *cert, char *url);
 int check_SAN(X509 *cert, char *url);
-int check_validate_time(X509 *cert);
+int check_time(X509 *cert);
 int check_key_length(X509 *cert);
 int check_basic_constraint(X509 *cert);
 int check_TLS_WSA(X509 *cert);
@@ -80,6 +80,7 @@ int main(int argc, char **argv) {
 }
 
 // process the validation by required
+// part of code is extracted from certexample
 int validation(char *file, char *url) {
     X509 *cert = NULL;
     BIO *certificate_bio = NULL;
@@ -98,19 +99,20 @@ int validation(char *file, char *url) {
         fprintf(stderr, "Error in loading certificate\n");
         exit(EXIT_FAILURE);
     }
-    /************************************************************************/
+    /******************************************************************/
+    // processing the validation
     int result = VALID;
     // validates the domain in common name
     if (!check_CN(cert, url) && !check_SAN(cert, url)) result = INVALID;
     // validates the not before, not after time
-    if (!check_validate_time(cert)) result = INVALID;
+    if (!check_time(cert)) result = INVALID;
     // validates the minimum key length
     if (check_key_length(cert)) result = INVALID;
     // validates the basic constraint
     if (check_basic_constraint(cert)) result = INVALID;
     // validates the extension of extended key usage
     if (!check_TLS_WSA(cert)) result = INVALID;
-    /************************************************************************/
+    /******************************************************************/
     X509_free(cert);
     BIO_free_all(certificate_bio);
 
@@ -138,11 +140,11 @@ int check_CN(X509 *cert, char *url) {
 
 // check the subject alternative name
 int check_SAN(X509 *cert, char *url) {
-    int san_names_nb = -1, result = INVALID;
+    int san_names_nb = -1, result = INVALID, i;
     STACK_OF(GENERAL_NAME) *san_names = X509_get_ext_d2i(cert, NID_subject_alt_name, NULL, NULL);
     san_names_nb = sk_GENERAL_NAME_num(san_names);
     // check each name within the extension
-    for (int i=0; i<san_names_nb; i++) {
+    for (i=0; i<san_names_nb; i++) {
         const GENERAL_NAME *current_name = sk_GENERAL_NAME_value(san_names, i);
         if (current_name->type == GEN_DNS) {
             char *dns_name = (char *) ASN1_STRING_data(current_name->d.dNSName);
@@ -163,7 +165,7 @@ int check_SAN(X509 *cert, char *url) {
 }
 
 // check the validation time
-int check_validate_time(X509 *cert) {
+int check_time(X509 *cert) {
     // get the not valid before and after time
     ASN1_TIME *nb_time = X509_get_notBefore(cert);
     ASN1_TIME *na_time = X509_get_notAfter(cert);
@@ -183,13 +185,14 @@ int check_key_length(X509 *cert) {
 // check the basic constraint "CA:FALSE"
 int check_basic_constraint(X509 *cert) {
     BASIC_CONSTRAINTS *bs = X509_get_ext_d2i(cert, NID_basic_constraints, NULL, NULL);
-    // 0 for fals, 255 for true
+    // CA value: 0 for false, 255 for true
     int ca = bs->ca;
     BASIC_CONSTRAINTS_free(bs);
     return ca;
 }
 
 // check the TLS WSA in extended key usage
+// part of code is extracted from certexample
 int check_TLS_WSA(X509 *cert) {
     char *buf = NULL;
     BUF_MEM *bptr = NULL;
@@ -206,7 +209,7 @@ int check_TLS_WSA(X509 *cert) {
     buf = (char *)malloc((bptr->length + 1) * sizeof(char));
     memcpy(buf, bptr->data, bptr->length);
     buf[bptr->length] = '\0';
-    // free
+    // free the bio
     BIO_free_all(bio);
     // return VALID if buf contains TLS_WSA
     if (!strstr(buf, TLS_WSA)) return INVALID;
