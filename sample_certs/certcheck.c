@@ -214,8 +214,10 @@ int check_TLS_WSA(X509 *cert) {
     // free the bio
     BIO_free_all(bio);
     // return VALID if buf contains TLS_WSA
-    if (!strstr(buf, TLS_WSA)) return INVALID;
-    return VALID;
+    int result = VALID;
+    if (!strstr(buf, TLS_WSA)) result = INVALID;
+    free(buf);
+    return result;
 }
 
 // compare the two given time structure
