@@ -179,7 +179,10 @@ int check_key_length(X509 *cert) {
     EVP_PKEY *public_key = X509_get_pubkey(cert);
     RSA *rsa_key = EVP_PKEY_get1_RSA(public_key);
     int key_length = RSA_size(rsa_key);
-    RSA_free(rsa_key);
+    // RSA_free(rsa_key);
+    if (public_key->pkey.ptr != NULL) {
+        if (public_key->type == EVP_PKEY_RSA) RSA_free(public_key->pkey.rsa);
+    /* else memory leak */
     return key_length * BITS - KEY_LEN;
 }
 
