@@ -115,6 +115,9 @@ int validation(char *file, char *url) {
     /******************************************************************/
     X509_free(cert);
     BIO_free_all(certificate_bio);
+    ERR_free_strings();
+    EVP_cleanup();
+    ERR_remove_state(0);
 
     return result;
 }
