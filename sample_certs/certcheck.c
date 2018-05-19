@@ -113,6 +113,7 @@ int validation(char *file, char *url) {
     // validates the extension of extended key usage
     if (!check_TLS_WSA(cert)) result = INVALID;
     /******************************************************************/
+    // free for all
     X509_free(cert);
     BIO_free_all(certificate_bio);
     ERR_free_strings();
