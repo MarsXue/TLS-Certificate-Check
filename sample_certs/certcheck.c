@@ -15,6 +15,7 @@
 #include <openssl/err.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdbool.h>
 
 // byte to bits
 #define BITS 8
