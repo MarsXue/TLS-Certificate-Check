@@ -57,6 +57,7 @@ void *open_file(char *path, char *type);
 void remove_char(char *str, int index);
 /****************************************************************************/
 
+// main function
 int main(int argc, char **argv) {
     // get the input file path
     char *path = get_path(argc, argv);
@@ -104,7 +105,7 @@ int validation(char *file, char *url) {
     /******************************************************************/
     // processing the validation
     int result = VALID;
-    // validates the domain in common name
+    // validates the common name and subject alternative name
     if (!check_CN(cert, url) && !check_SAN(cert, url)) result = INVALID;
     // validates the not before, not after time
     if (!check_time(cert)) result = INVALID;
@@ -125,19 +126,19 @@ int validation(char *file, char *url) {
     return result;
 }
 
-// check the common name with domain name
+// check the common name
 int check_CN(X509 *cert, char *url) {
     // get the subject common name
     X509_NAME *cert_subject = X509_get_subject_name(cert);
     char subject_cn[SIZE] = "Subject CN NOT FOUND";
     X509_NAME_get_text_by_NID(cert_subject, NID_commonName, subject_cn, SIZE);
-    // check the wildcard domains (found *)
+    // check the wildcard domains (if found *)
     if (strchr(subject_cn, STAR)) {
         // check the SAN (wildcard) matching the url
         if (!match(subject_cn, url, 0, 0)) return INVALID;
     } else {
         // check the CN matching the url
-        if (strcmp(url, subject_cn) != 0) return INVALID;
+        if (strcmp(url, subject_cn)) return INVALID;
     }
     return VALID;
 }
@@ -162,6 +163,7 @@ int check_SAN(X509 *cert, char *url) {
             }
         }
     }
+    // free
     sk_GENERAL_NAME_pop_free(san_names, GENERAL_NAME_free);
     return result;
 }
@@ -180,11 +182,11 @@ int check_key_length(X509 *cert) {
     EVP_PKEY *public_key = X509_get_pubkey(cert);
     RSA *rsa_key = EVP_PKEY_get1_RSA(public_key);
     int key_length = RSA_size(rsa_key);
-    // RSA_free(rsa_key);
     if (public_key->pkey.ptr != NULL) {
         if (public_key->type == EVP_PKEY_RSA) RSA_free(public_key->pkey.rsa);
     }
     EVP_PKEY_free(public_key);
+    RSA_free(rsa_key);
     return key_length * BITS - KEY_LEN;
 }
 
@@ -225,13 +227,13 @@ int check_TLS_WSA(X509 *cert) {
     return result;
 }
 
-// function for matching the wildcard url
-// codes are extracted from stackoverflow
+// function for matching the valid wildcard url
+// part of codes are extracted from stackoverflow
 bool match(char *pattern, char *candidate, int p, int c) {
     if (pattern[p] == '\0') {
         return candidate[c] == '\0';
     } else if (pattern[p] == '*') {
-        for (c = c+1; candidate[c] != '\0' && candidate[c] != '.'; c++) {
+        for (; candidate[c] != '\0' && candidate[c] != '.'; c++) {
             if (match(pattern, candidate, p+1, c)) return true;
         }
         return match(pattern, candidate, p+1, c);
