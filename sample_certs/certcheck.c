@@ -15,7 +15,7 @@
 #include <openssl/err.h>
 #include <stdio.h>
 #include <string.h>
-#include <stdbool.h>
+#include <fnmatch.h>
 
 // byte to bits
 #define BITS 8
@@ -29,6 +29,8 @@
 #define STAR '*'
 // slash character
 #define SLASH '/'
+// point character
+#define POINT '.'
 // valid value
 #define VALID 1
 // invalid value
@@ -50,9 +52,8 @@ int check_time(X509 *cert);
 int check_key_length(X509 *cert);
 int check_basic_constraint(X509 *cert);
 int check_TLS_WSA(X509 *cert);
-int check_url(char *dom, char *url);
+int check_url(char *name, char *url);
 int count_char(char *string);
-bool match(char *pattern, char *candidate, int p, int c);
 int compare_time(ASN1_TIME *from, ASN1_TIME *to);
 char *get_path(int argc, char **argv);
 void *open_file(char *path, char *type);
@@ -137,7 +138,6 @@ int check_CN(X509 *cert, char *url) {
     // check the wildcard domains (if found *)
     if (strchr(subject_cn, STAR)) {
         // check the SAN (wildcard) matching the url
-        // if (!match(subject_cn, url, 0, 0)) return INVALID;
         if (!check_url(subject_cn, url)) return INVALID;
     } else {
         // check the CN matching the url
@@ -159,7 +159,6 @@ int check_SAN(X509 *cert, char *url) {
             // check the wildcard domains (found *)
             if (strchr(dns_name, STAR)) {
                 // check the SAN (wildcard) matching the url
-                // if (match(dns_name, url, 0, 0)) result = VALID;
                 if (check_url(dns_name, url)) result = VALID;
             } else {
                 // check the SAN matching the url
@@ -186,10 +185,13 @@ int check_key_length(X509 *cert) {
     EVP_PKEY *public_key = X509_get_pubkey(cert);
     RSA *rsa_key = EVP_PKEY_get1_RSA(public_key);
     int key_length = RSA_size(rsa_key);
+    // free for all
     if (public_key->pkey.ptr != NULL) {
-        if (public_key->type == EVP_PKEY_RSA) RSA_free(public_key->pkey.rsa);
+        if (public_key->type == EVP_PKEY_RSA) {
+            RSA_free(public_key->pkey.rsa);
+        }
     }
-
+    RSA_free(rsa_key->pkey.rsa);
     EVP_PKEY_free(public_key);
     return key_length * BITS - KEY_LEN;
 }
@@ -231,37 +233,26 @@ int check_TLS_WSA(X509 *cert) {
     return result;
 }
 
-int check_url(char *dom, char *url) {
-    if (!fnmatch(dom, url, FNM_PERIOD) && count_char(dom) == count_char(url)) {
-        return VALID;
+// check the wildcard name matching the url
+int check_url(char *name, char *url) {
+    // fnmatch checks the format
+    if (!fnmatch(name, url, FNM_PERIOD)) {
+        // check one level subdomain
+        if (count_char(name) == count_char(url)) {
+            return VALID;
+        }
+    }
     return INVALID;
 }
 
+// count the specific character in string
 int count_char(char *string) {
     int count = 0;
     char *tmp = string;
-    while ((tmp = strchr(tmp, '.')) != NULL) {
-        tmp++;
-        count++;
+    while ((tmp = strchr(tmp, POINT)) != NULL) {
+        tmp++, count++;
     }
     return count;
-}
-
-// function for matching the valid wildcard url
-// part of codes are extracted from stackoverflow
-bool match(char *pattern, char *candidate, int p, int c) {
-    if (pattern[p] == '\0') {
-        return candidate[c] == '\0';
-    } else if (pattern[p] == '*') {
-        for (c = c+1; candidate[c] != '\0' && candidate[c] != '.'; c++) {
-            if (match(pattern, candidate, p+1, c)) return true;
-        }
-        return match(pattern, candidate, p+1, c);
-    } else if (pattern[p] != '?' && pattern[p] != candidate[c]) {
-        return false;
-    } else {
-        return match(pattern, candidate, p+1, c+1);
-    }
 }
 
 // compare the two given time structure
