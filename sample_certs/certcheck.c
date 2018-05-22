@@ -131,16 +131,12 @@ int check_CN(X509 *cert, char *url) {
     X509_NAME *cert_subject = X509_get_subject_name(cert);
     char subject_cn[SIZE] = "Subject CN NOT FOUND";
     X509_NAME_get_text_by_NID(cert_subject, NID_commonName, subject_cn, SIZE);
-    // validates with domain name
+    // check the wildcard domains (found *)
     if (strchr(subject_cn, STAR)) {
-        // check the wildcard domains
-        // int index = strlen(subject_cn) - strlen(strrchr(subject_cn, STAR));
-        // remove_char(subject_cn, index);
-        // subject name does not contain wildcard domains
-        // if (!strstr(url, subject_cn)) return INVALID;
+        // check the SAN (wildcard) matching the url
         if (!match(subject_cn, url, 0, 0)) return INVALID;
     } else {
-        // subject common name and url are different
+        // check the CN matching the url
         if (strcmp(url, subject_cn) != 0) return INVALID;
     }
     return VALID;
@@ -156,15 +152,12 @@ int check_SAN(X509 *cert, char *url) {
         const GENERAL_NAME *current_name = sk_GENERAL_NAME_value(san_names, i);
         if (current_name->type == GEN_DNS) {
             char *dns_name = (char *)ASN1_STRING_data(current_name->d.dNSName);
-            // check the wildcard domains
+            // check the wildcard domains (found *)
             if (strchr(dns_name, STAR)) {
-                // int index = strlen(dns_name) - strlen(strrchr(dns_name, STAR));
-                // remove_char(dns_name, index);
-                // subject alternative name does not contain wildcard domains
-                // if (strstr(url, dns_name)) result = VALID;
+                // check the SAN (wildcard) matching the url
                 if (match(dns_name, url, 0, 0)) result = VALID;
             } else {
-                // subject alternative name and url are different
+                // check the SAN matching the url
                 if (strcmp(url, dns_name) == 0) result = VALID;
             }
         }
@@ -279,11 +272,4 @@ void *open_file(char *path, char *type) {
         exit(1);
     }
     return f;
-}
-
-// remove the specific character by index
-void remove_char(char *str, int index) {
-    char *src;
-    for (src = str + index; *src != '\0'; *src = *(src + 1), ++src);
-    *src = '\0';
 }
