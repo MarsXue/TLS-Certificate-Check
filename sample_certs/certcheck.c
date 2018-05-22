@@ -50,7 +50,7 @@ int check_time(X509 *cert);
 int check_key_length(X509 *cert);
 int check_basic_constraint(X509 *cert);
 int check_TLS_WSA(X509 *cert);
-bool match(const char *pattern, const char *candidate, int p, int c);
+bool match(char *pattern, char *candidate, int p, int c);
 int compare_time(ASN1_TIME *from, ASN1_TIME *to);
 char *get_path(int argc, char **argv);
 void *open_file(char *path, char *type);
@@ -231,7 +231,7 @@ int check_TLS_WSA(X509 *cert) {
     return result;
 }
 
-bool match(const char *pattern, const char *candidate, int p, int c) {
+bool match(char *pattern, char *candidate, int p, int c) {
     if (pattern[p] == '\0') {
         return candidate[c] == '\0';
     } else if (pattern[p] == '*') {
