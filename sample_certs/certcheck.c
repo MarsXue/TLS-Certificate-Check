@@ -49,6 +49,7 @@ int check_time(X509 *cert);
 int check_key_length(X509 *cert);
 int check_basic_constraint(X509 *cert);
 int check_TLS_WSA(X509 *cert);
+bool match(const char *pattern, const char *candidate, int p, int c);
 int compare_time(ASN1_TIME *from, ASN1_TIME *to);
 char *get_path(int argc, char **argv);
 void *open_file(char *path, char *type);
@@ -155,10 +156,11 @@ int check_SAN(X509 *cert, char *url) {
             char *dns_name = (char *)ASN1_STRING_data(current_name->d.dNSName);
             // check the wildcard domains
             if (strchr(dns_name, STAR)) {
-                int index = strlen(dns_name) - strlen(strrchr(dns_name, STAR));
-                remove_char(dns_name, index);
+                // int index = strlen(dns_name) - strlen(strrchr(dns_name, STAR));
+                // remove_char(dns_name, index);
                 // subject alternative name does not contain wildcard domains
-                if (strstr(url, dns_name)) result = VALID;
+                // if (strstr(url, dns_name)) result = VALID;
+                if (match(dns_name, url, 0, 0)) result = VALID;
             } else {
                 // subject alternative name and url are different
                 if (strcmp(url, dns_name) == 0) result = VALID;
@@ -226,6 +228,21 @@ int check_TLS_WSA(X509 *cert) {
     if (!strstr(buf, TLS_WSA)) result = INVALID;
     free(buf);
     return result;
+}
+
+bool match(const char *pattern, const char *candidate, int p, int c) {
+    if (pattern[p] == '\0') {
+        return candidate[c] == '\0';
+    } else if (pattern[p] == '*') {
+        for (; candidate[c] != '\0' && candidate[c] != '.'; c++) {
+            if (match(pattern, candidate, p+1, c)) return true;
+        }
+        return match(pattern, candidate, p+1, c);
+    } else if (pattern[p] != '?' && pattern[p] != candidate[c]) {
+        return false;
+    } else {
+        return match(pattern, candidate, p+1, c+1);
+    }
 }
 
 // compare the two given time structure
