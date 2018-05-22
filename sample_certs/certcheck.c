@@ -82,7 +82,7 @@ int main(int argc, char **argv) {
 }
 
 // process the validation by required
-// part of code is extracted from certexample
+// part of codes are extracted from certexample
 int validation(char *file, char *url) {
     X509 *cert = NULL;
     BIO *certificate_bio = NULL;
@@ -134,10 +134,11 @@ int check_CN(X509 *cert, char *url) {
     // validates with domain name
     if (strchr(subject_cn, STAR)) {
         // check the wildcard domains
-        int index = strlen(subject_cn) - strlen(strrchr(subject_cn, STAR));
-        remove_char(subject_cn, index);
+        // int index = strlen(subject_cn) - strlen(strrchr(subject_cn, STAR));
+        // remove_char(subject_cn, index);
         // subject name does not contain wildcard domains
-        if (!strstr(url, subject_cn)) return INVALID;
+        // if (!strstr(url, subject_cn)) return INVALID;
+        if (!match(subject_cn, url, 0, 0)) return INVALID;
     } else {
         // subject common name and url are different
         if (strcmp(url, subject_cn) != 0) return INVALID;
@@ -205,7 +206,7 @@ int check_basic_constraint(X509 *cert) {
 }
 
 // check the TLS WSA in extended key usage
-// part of code is extracted from certexample
+// part of codes are extracted from certexample
 int check_TLS_WSA(X509 *cert) {
     char *buf = NULL;
     BUF_MEM *bptr = NULL;
@@ -231,6 +232,8 @@ int check_TLS_WSA(X509 *cert) {
     return result;
 }
 
+// function for matching the wildcard url
+// codes are extracted from stackoverflow
 bool match(char *pattern, char *candidate, int p, int c) {
     if (pattern[p] == '\0') {
         return candidate[c] == '\0';
