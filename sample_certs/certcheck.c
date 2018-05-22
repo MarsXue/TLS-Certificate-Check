@@ -231,7 +231,7 @@ bool match(char *pattern, char *candidate, int p, int c) {
     if (pattern[p] == '\0') {
         return candidate[c] == '\0';
     } else if (pattern[p] == '*') {
-        for (; candidate[c] != '\0' && candidate[c] != '.'; c++) {
+        for (c = c+1; candidate[c] != '\0' && candidate[c] != '.'; c++) {
             if (match(pattern, candidate, p+1, c)) return true;
         }
         return match(pattern, candidate, p+1, c);
