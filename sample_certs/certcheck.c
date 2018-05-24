@@ -140,9 +140,9 @@ int check_CN(X509 *cert, char *url) {
     // check the wildcard domains (if found *)
     if (strchr(subject_cn, STAR)) {
         // check the SAN (wildcard) matching the url
-        if (!check_url(subject_cn, url)) return INVALID;
+        // if (!check_url(subject_cn, url)) return INVALID;
         // --- alternative approach ---
-        // if (!match(subject_cn, url, 0, 0)) return INVALID;
+        if (!match(subject_cn, url, 0, 0)) return INVALID;
     } else {
         // check the CN matching the url
         if (strcmp(url, subject_cn)) return INVALID;
@@ -163,9 +163,9 @@ int check_SAN(X509 *cert, char *url) {
             // check the wildcard domains (if found *)
             if (strchr(dns_name, STAR)) {
                 // check the SAN (wildcard) matching the url
-                if (check_url(dns_name, url)) result = VALID;
+                // if (check_url(dns_name, url)) result = VALID;
                 // --- alternative approach ---
-                // if (!match(subject_cn, url, 0, 0)) return INVALID;
+                if (!match(dns_name, url, 0, 0)) return INVALID;
             } else {
                 // check the SAN matching the url
                 if (strcmp(url, dns_name) == 0) result = VALID;
@@ -264,7 +264,7 @@ bool match(char *pattern, char *candidate, int p, int c) {
     if (pattern[p] == '\0') {
         return candidate[c] == '\0';
     } else if (pattern[p] == '*') {
-        for (c = c+1; candidate[c] != '\0' && candidate[c] != '.'; c++) {
+        for (; candidate[c] != '\0' && candidate[c] != '.'; c++) {
             if (match(pattern, candidate, p+1, c)) return true;
         }
         return match(pattern, candidate, p+1, c);
