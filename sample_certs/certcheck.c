@@ -15,6 +15,7 @@
 #include <openssl/err.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdbool.h>
 #include <fnmatch.h>
 
 // byte to bits
@@ -54,6 +55,7 @@ int check_basic_constraint(X509 *cert);
 int check_TLS_WSA(X509 *cert);
 int check_url(char *name, char *url);
 int count_char(char *string);
+bool match(char *pattern, char *candidate, int p, int c);
 int compare_time(ASN1_TIME *from, ASN1_TIME *to);
 char *get_path(int argc, char **argv);
 void *open_file(char *path, char *type);
@@ -110,7 +112,7 @@ int validation(char *file, char *url) {
     int result = VALID;
     // validates the common name and subject alternative name
     if (!check_CN(cert, url) && !check_SAN(cert, url)) result = INVALID;
-    // validates the not before, not after time
+    // validates the not before and not after time
     if (!check_time(cert)) result = INVALID;
     // validates the minimum key length
     if (check_key_length(cert)) result = INVALID;
@@ -139,6 +141,8 @@ int check_CN(X509 *cert, char *url) {
     if (strchr(subject_cn, STAR)) {
         // check the SAN (wildcard) matching the url
         if (!check_url(subject_cn, url)) return INVALID;
+        // --- alternative approach ---
+        // if (!match(subject_cn, url, 0, 0)) return INVALID;
     } else {
         // check the CN matching the url
         if (strcmp(url, subject_cn)) return INVALID;
@@ -156,10 +160,12 @@ int check_SAN(X509 *cert, char *url) {
         const GENERAL_NAME *current_name = sk_GENERAL_NAME_value(san_names, i);
         if (current_name->type == GEN_DNS) {
             char *dns_name = (char *)ASN1_STRING_data(current_name->d.dNSName);
-            // check the wildcard domains (found *)
+            // check the wildcard domains (if found *)
             if (strchr(dns_name, STAR)) {
                 // check the SAN (wildcard) matching the url
                 if (check_url(dns_name, url)) result = VALID;
+                // --- alternative approach ---
+                // if (!match(subject_cn, url, 0, 0)) return INVALID;
             } else {
                 // check the SAN matching the url
                 if (strcmp(url, dns_name) == 0) result = VALID;
@@ -185,14 +191,10 @@ int check_key_length(X509 *cert) {
     EVP_PKEY *public_key = X509_get_pubkey(cert);
     RSA *rsa_key = EVP_PKEY_get1_RSA(public_key);
     int key_length = RSA_size(rsa_key);
-    // free for all
-    // if (public_key->pkey.ptr != NULL) {
-    //     if (public_key->type == EVP_PKEY_RSA) {
-    //         RSA_free(public_key->pkey.rsa);
-    //     }
-    // }
+    // free
     RSA_free(rsa_key);
     EVP_PKEY_free(public_key);
+    // return length of key equals to 2048 bits
     return key_length * BITS - KEY_LEN;
 }
 
@@ -202,6 +204,7 @@ int check_basic_constraint(X509 *cert) {
     BASIC_CONSTRAINTS *bs = X509_get_ext_d2i(cert, NID_basic_constraints, NULL, NULL);
     // CA value: 0 for false, 255 for true
     ca = bs->ca;
+    // free
     BASIC_CONSTRAINTS_free(bs);
     return ca;
 }
@@ -255,7 +258,25 @@ int count_char(char *string) {
     return count;
 }
 
+// alternative approach for matching the wildcard url
+// part of codes are extracted from stackoverflow
+bool match(char *pattern, char *candidate, int p, int c) {
+    if (pattern[p] == '\0') {
+        return candidate[c] == '\0';
+    } else if (pattern[p] == '*') {
+        for (c = c+1; candidate[c] != '\0' && candidate[c] != '.'; c++) {
+            if (match(pattern, candidate, p+1, c)) return true;
+        }
+        return match(pattern, candidate, p+1, c);
+    } else if (pattern[p] != '?' && pattern[p] != candidate[c]) {
+        return false;
+    } else {
+        return match(pattern, candidate, p+1, c+1);
+    }
+}
+
 // compare the two given time structure
+// valid if from <= to, invalid otherwise
 int compare_time(ASN1_TIME *from, ASN1_TIME *to) {
     int day, sec;
     if (ASN1_TIME_diff(&day, &sec, from, to)) {
